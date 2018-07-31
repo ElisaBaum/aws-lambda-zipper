@@ -1,61 +1,36 @@
 import * as AWS from 'aws-sdk';
-import * as XmlStream from 'xml-stream';
 import * as s3Zip from 's3-zip';
 
-
-exports.handler = function (event, context) {
-  console.log('event', event);
-
-
-  const region = "eu-west-1";
-  const bucket = "maple-backend";
-  const folder = "/gallery/original/1";
-  //var zipFileName = event.zipFileName;
-
-  const params = {
-    Bucket: bucket,
-    Prefix: folder
-  };
-
-  const s3 = new AWS.S3({ region: region });
-
-
-  const filesArray = [];
-  const files = s3.listObjects(params).createReadStream();
-  const xml = new XmlStream(files);
-  xml.collect('Key');
-  xml.on('endElement: Key', function(item) {
-    filesArray.push(item['$text'].substr(folder.length))
-  });
-
-
- console.log("files: " + filesArray);
-
-  /*
-
-  // Create body stream
+export const handler = async function (event, context) {
   try {
+    const region = process.env.region;
+    const bucket = process.env.bucket;
 
-    var body = s3Zip.archive({ region: region, bucket: bucket}, folder, files)
-    var zipParams = { params: { Bucket: bucket, Key: folder + zipFileName } }
-    var zipFile = new AWS.S3(zipParams)
-    zipFile.upload({ Body: body })
-    .on('httpUploadProgress', function (evt) { console.log(evt) })
-    .send(function (e, r) {
-      if (e) {
-        var err = 'zipFile.upload error ' + e
-        console.log(err)
-        context.fail(err)
-      }
-      console.log(r)
-      context.succeed(r)
-    })
+    const srcFolderName = process.env.srcFolderName;
+    const destFolderName = process.env.destFolderName;
+
+    const srcFolderPath = event.srcFolderPath;
+
+    const s3 = new AWS.S3({region: region});
+
+    const files = await s3.listObjects({Bucket: bucket, Prefix: srcFolderPath}).promise();
+    const fileNames = files.Contents
+        .map(item => item.Key.split('/').pop())
+        .filter(name => !!name);
+
+    const stream = s3Zip.archive({region: region, bucket: bucket}, srcFolderPath, fileNames);
+
+    const DestKey = srcFolderPath.replace(srcFolderName, destFolderName) + "images.zip";
+
+    await s3.upload({
+      Bucket: bucket,
+      Key: DestKey,
+      Body: stream,
+    }).promise();
 
   } catch (e) {
-    var err = 'catched error: ' + e
-    console.log(err)
-    context.fail(err)
+    const err = 'catched error: ' + e;
+    console.log(err);
+    context.fail(err);
   }
-
-*/
 };
