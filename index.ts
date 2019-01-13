@@ -8,6 +8,7 @@ export const handler = async function (event, context) {
 
     const srcFolderName = process.env.srcFolderName;
     const destFolderName = process.env.destFolderName;
+    const destFileName = process.env.fileName;
 
     const srcFolderPath = event.srcFolderPath;
 
@@ -20,11 +21,11 @@ export const handler = async function (event, context) {
 
     const stream = s3Zip.archive({region: region, bucket: bucket}, srcFolderPath, fileNames);
 
-    const DestKey = srcFolderPath.replace(srcFolderName, destFolderName) + "images.zip";
+    const destKey = srcFolderPath.replace(srcFolderName, destFolderName) + destFileName;
 
     await s3.upload({
       Bucket: bucket,
-      Key: DestKey,
+      Key: destKey,
       Body: stream,
     }).promise();
 
